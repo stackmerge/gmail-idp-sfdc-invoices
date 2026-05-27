@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule
+	xmlns:validation="http://www.mulesoft.org/schema/mule/validation"
+	xmlns:oauth="http://www.mulesoft.org/schema/mule/oauth"
+	xmlns:os="http://www.mulesoft.org/schema/mule/os"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:file="http://www.mulesoft.org/schema/mule/file"
+	xmlns:email="http://www.mulesoft.org/schema/mule/email"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/email http://www.mulesoft.org/schema/mule/email/current/mule-email.xsd
+http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/os http://www.mulesoft.org/schema/mule/os/current/mule-os.xsd
+http://www.mulesoft.org/schema/mule/oauth http://www.mulesoft.org/schema/mule/oauth/current/mule-oauth.xsd
+http://www.mulesoft.org/schema/mule/validation http://www.mulesoft.org/schema/mule/validation/current/mule-validation.xsd">
+
+	<flow name="email-sf-idp-pocFlow">
+
+		<email:listener-imap
+			doc:name="Fetching latest mail from email" config-ref="Email_IMAP">
+			<reconnect frequency="${emailReconnection.frequency}"
+				count="${emailReconnection.attempts}" />
+			<scheduling-strategy>
+				<fixed-frequency
+					frequency="${emailScheduler.frequency}"
+					startDelay="${emailScheduler.delay}" timeUnit="SECONDS" />
+			</scheduling-strategy>
+		</email:listener-imap>
+		<logger level="INFO" message='"email flow started "' />
+		<choice doc:name="Checking attachments">
+
+			<when
+				expression="#[//payload.attachments != null and sizeOf(payload.attachments) &gt; 0&#10;!isEmpty(payload.attachments)]">
+
+				<foreach doc:name="For Each"
+					collection="#[entriesOf(payload.attachments)]">
+
+					<!-- Your original Base64 transform -->
+					<!-- [STUDIO:"Transform Message"]<ee:transform doc:name="Transform Message">
+						<ee:message>
+							<ee:set-payload resource="dwl/binary_conversion.dwl" />
+						</ee:message>
+					</ee:transform> [STUDIO] -->
+
+					<!-- ✅ ERROR HANDLING KEPT EXACTLY SAME -->
+					<ee:transform doc:name="Transform Message" doc:id="dbf07570-8088-4316-a9fb-1cdf87b157db" >
+						<ee:message >
+							<ee:set-payload ><![CDATA[%dw 2.0
+import * from dw::core::Binaries
+output application/json
+
+var fileName = payload.key
+var fileContent = payload.value as Binary
+var fileExtension = lower((fileName splitBy ".")[-1] default "")
+var fileSizeBytes = sizeOf(fileContent)
+var fileSizeMB = fileSizeBytes / 1048576
+
+var allowedFormats = ["pdf", "png", "jpg", "jpeg", "tiff"]
+
+var isValidFormat = allowedFormats contains fileExtension
+var isValidSize = fileSizeBytes > 0 and fileSizeMB <= 8
+
+---
+{
+    debug_size_bytes: fileSizeBytes, // 👈 ADD THIS FOR DEBUG
+    fileName: fileName,
+    fileExtension: fileExtension,
+    fileSizeMB: fileSizeMB,
+
+    file: if (isValidSize) toBase64(fileContent) else null,
+
+    isValid: isValidFormat and isValidSize,
+
+    reason: 
+        if (!isValidFormat) "INVALID_FORMAT"
+        else if (!isValidSize) "FILE_EMPTY_OR_TOO_LARGE"
+        else "VALID"
+}]]></ee:set-payload>
+						</ee:message>
+					</ee:transform>
+					<flow-ref doc:name="Flow Reference" doc:id="800cc0a9-5a4d-46c7-8e29-5e186669904a" name="email-sf-idp-pocSub_Flow"/>
+					<!-- [STUDIO:"Until Successful"]<until-successful
+						maxRetries="${untilSuccessful.reties}"
+						millisBetweenRetries="${untilSuccessful.frequency}">
+						<try>
+
+							<error-handler>
+								<on-error-propagate enableNotifications="true" logException="true" type="HTTP:BAD_GATEWAY, HTTP:CONNECTIVITY, HTTP:RETRY_EXHAUSTED">
+
+									<set-variable value="INTEGRATION_ERROR" variableName="errorCategory" />
+									<set-variable value="Failed to connect to IDP service" variableName="customMessage" />
+
+									<logger level="INFO" message='#[{&#10;	"errorCategory": vars.errorCategory,&#10;	"customMessage": vars.customMessage,&#10;	"errorType": error.errorType,&#10;	"description": error.description&#10;}&#93;' />
+
+								</on-error-propagate>
+							</error-handler>
+
+						</try>
+					</until-successful> [STUDIO] -->
+					<!-- [STUDIO:"Logger"]<logger level="INFO"
+						message='#["id retrieved successful " ++ payload.id&#93;' /> [STUDIO] -->
+
+				</foreach>
+
+			</when>
+
+			<otherwise>
+				<logger level="INFO"
+					message='"No attachments. Ignoring email"' />
+			</otherwise>
+
+		</choice>
+		<error-handler ref="global-error-handlingError_Handler" />
+
+	</flow>
+	<sub-flow name="email-sf-idp-pocSub_Flow" doc:id="6b7cb285-d5ae-4ec0-9f8a-9ce993ccc501" >
+		<logger level="INFO" doc:name="Logger" doc:id="492138ef-5bd8-42b3-9ce1-f7ab5d1a590e" message="#[payload]"/>
+		<choice doc:name="Choice" doc:id="02afcf17-4432-4690-8125-8ca7f0b32c1e" >
+			<when expression="#[payload.isValid]">
+				<until-successful maxRetries="5" doc:name="Until Successful" doc:id="9216ac96-6c33-41cb-b6e2-8013d349cabc" >
+					<try doc:name="Try" doc:id="8505d700-91a4-48a5-a7e7-a5b7593fdf3e" >
+						<http:request doc:name="Post doc action execution" config-ref="HTTP_Request_config" method="${idpRequest.post_method}" path="${idpRequest.path}">
+								<reconnect frequency="${reconnection.frequency}" count="${reconnection.attempts}" />
+							</http:request>
+						<error-handler >
+							<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="c09645bb-2c95-4a14-afd8-72ab4d214c58" type="HTTP:BAD_GATEWAY, HTTP:CONNECTIVITY, HTTP:RETRY_EXHAUSTED">
+								<set-variable value="INTEGRATION_ERROR" doc:name="Set Variable" doc:id="eb730fa2-69d2-44a9-ac29-0535fd7b8d11" variableName="errorCategory"/>
+								<set-variable value="Failed to connect to IDP service" doc:name="Set Variable" doc:id="d0c71c14-1184-49fc-b9b8-6c8906a92217" variableName="customMessage"/>
+								<logger level="INFO" doc:name="Logger" doc:id="74ba9031-fad6-4883-915b-fa30fee92ad9" message='#[{&#10;	"errorCategory": vars.errorCategory,&#10;	"customMessage": vars.customMessage,&#10;	"errorType": error.errorType,&#10;	"description": error.description&#10;}]'/>
+							</on-error-propagate>
+						</error-handler>
+					</try>
+				</until-successful>
+				<os:store key="#[payload.id]" objectStore="Object_store" doc:name="Storing Execution Ids" />
+				<logger level="INFO" doc:name="Logger" doc:id="d7275587-d14c-4729-b171-5f16bd84c1af" message='"execution id stored successful"'/>
+			</when>
+			<otherwise >
+				<logger level="INFO" doc:name="Logger" doc:id="08d64d02-a7a9-46b0-badf-725846dae1f7" message='"invalid file"'/>
+			</otherwise>
+		</choice>
+		<logger level="INFO" doc:name="Logger" doc:id="f17f36a3-f996-4cfd-913d-94eabd5b5fda" message='"end post call"'/>
+	</sub-flow>
+
+</mule>

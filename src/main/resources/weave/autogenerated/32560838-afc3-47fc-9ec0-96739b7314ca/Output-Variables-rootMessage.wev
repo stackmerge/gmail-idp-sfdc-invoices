@@ -1,0 +1,12 @@
+%dw 2.0
+
+type auto_32560838_afc3_47fc_9ec0_96739b7314ca_Output_Variables_rootMessage = {|
+  payload: { _?: java_io_Serializable {"typeId": "java.io.Serializable",
+    "typeAlias": "Serializable"} }, 
+  attributes: Null
+|} {"typeId": "org.mule.runtime.api.message.Message"}
+type java_io_Serializable = {|  |} {"typeId": "java.io.Serializable",
+"typeAlias": "Serializable"}
+
+
+

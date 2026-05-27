@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:secure-properties="http://www.mulesoft.org/schema/mule/secure-properties"
+	xmlns:salesforce="http://www.mulesoft.org/schema/mule/salesforce"
+	xmlns:oauth="http://www.mulesoft.org/schema/mule/oauth"
+	xmlns:os="http://www.mulesoft.org/schema/mule/os" xmlns:email="http://www.mulesoft.org/schema/mule/email"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:file="http://www.mulesoft.org/schema/mule/file" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/email http://www.mulesoft.org/schema/mule/email/current/mule-email.xsd 
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd 
+http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/os http://www.mulesoft.org/schema/mule/os/current/mule-os.xsd
+http://www.mulesoft.org/schema/mule/oauth http://www.mulesoft.org/schema/mule/oauth/current/mule-oauth.xsd
+http://www.mulesoft.org/schema/mule/salesforce http://www.mulesoft.org/schema/mule/salesforce/current/mule-salesforce.xsd
+http://www.mulesoft.org/schema/mule/secure-properties http://www.mulesoft.org/schema/mule/secure-properties/current/mule-secure-properties.xsd">
+	<configuration-properties doc:name="Configuration properties" doc:id="2547cfc4-aa88-4baa-9b1b-6871d91a25c4" file="config\config.yaml" />
+	<email:imap-config name="Email_IMAP" doc:name="Email IMAP" doc:id="378cc105-3365-42a6-8d8e-b290e3904bda" >
+		<email:imap-connection host="${email.host}" user="${email.user}" password="${secure::email.password}" port="${email.port}">
+			<email:properties >
+				<email:property key="mail.imap.auth" value="true"/>
+				<email:property key="mail.imap.ssl.trust" value="*"/>
+				<email:property key="mail.imap.ssl.enable" value="true"/>
+				<email:property key="mail.imap.starttls.required" value="true" />
+			
+</email:properties>
+		</email:imap-connection>
+	</email:imap-config>
+	<http:request-config name="HTTP_Request_config" doc:name="HTTP Request config" doc:id="469afc77-fa9b-4d97-abf9-3cd6ab369c6e" >
+		<http:request-connection protocol="HTTPS" host="${idpRequest.host}">
+			<http:authentication >
+				<oauth:client-credentials-grant-type clientId="${secure::idpRequest.client_id}" clientSecret="${secure::idpRequest.client_secret}" tokenUrl="${idpRequest.token_url}"/>
+			</http:authentication>
+		</http:request-connection>
+	</http:request-config>
+	<os:object-store name="Object_store" doc:name="Object store" doc:id="98934085-0ac4-481f-a894-d95b1e052241" />
+	<salesforce:sfdc-config name="Salesforce_Config" doc:name="Salesforce Config" doc:id="0e30bc1d-6093-4da4-8f4e-f73c5c93350e" >
+		<salesforce:oauth-client-credentials-connection >
+			<salesforce:oauth-client-credentials clientId="${secure::salesforce.client_id}" clientSecret="${secure::salesforce.client_secret}" tokenUrl="${salesforce.token_url}" />
+		</salesforce:oauth-client-credentials-connection>
+	</salesforce:sfdc-config>
+	<secure-properties:config name="Secure_Properties_Config" doc:name="Secure Properties Config" doc:id="31e529c1-3c3f-4238-abdc-e696278026d0" file="config\secured.yaml" key="idppoc" >
+		<secure-properties:encrypt algorithm="Blowfish" />
+	</secure-properties:config>
+	<configuration-properties doc:name="Configuration properties" doc:id="808dd42d-477a-422a-a28c-9f1fcb0154f9" file="config\common.yaml" />
+</mule>

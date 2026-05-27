@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:validation="http://www.mulesoft.org/schema/mule/validation"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:os="http://www.mulesoft.org/schema/mule/os" xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/validation http://www.mulesoft.org/schema/mule/validation/current/mule-validation.xsd 
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/os http://www.mulesoft.org/schema/mule/os/current/mule-os.xsd">
+	<flow name="idp-get-processFlow" doc:id="28b0d134-1fb8-49de-8e19-94b57820bc10" >
+		<scheduler doc:name="Runs for every 10 mins" doc:id="8bf1f167-7d94-4e87-b519-7cf5c8362862" >
+			<scheduling-strategy >
+				<fixed-frequency frequency="${scheduler.frequency}" timeUnit="MINUTES" startDelay="${scheduler.delay}"/>
+			</scheduling-strategy>
+		</scheduler>
+		<logger level="INFO" doc:name="Start Logger" doc:id="b0506fd5-e29e-4f10-abbb-1eedfe471df0" message='"idp get flow started"'/>
+		<os:retrieve-all doc:name="Retrieving All Execution Ids" doc:id="bc20f2d8-15b2-4e22-aacf-3a1f9580636e" objectStore="Object_store" />
+		<ee:transform doc:name="Formatting json" doc:id="dbffb2f4-96d1-4ffe-9391-683d68ad0da9">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload pluck ((value, key) ->
+    read((value as String), "application/json")
+)]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<choice doc:name="Empty check" doc:id="4e3b0827-bbef-4fca-a7c1-f990dd30a961">
+						<when expression="#[!isEmpty(payload)]">
+				<foreach doc:name="For Each Execution ID" doc:id="cf256c24-e6fd-4437-ade3-6b63ebf589de" collection="#[payload]">
+					<until-successful maxRetries="${untilSuccessful.reties}" doc:name="Until Successful" doc:id="3a1f15d9-ce89-4dbb-a5b9-c888e848775a" millisBetweenRetries="${untilSuccessful.frequency}">
+						<try doc:name="Try" doc:id="97efe135-c076-41de-9483-5f5d240e13a7">
+									<http:request doc:name="Get doc action execution" doc:id="5e296acc-9aa2-4b11-babc-264060a782e1" config-ref="HTTP_Request_config" path="${idpRequest.get_path}" method="${idpRequest.get_method}">
+										<reconnect frequency="${reconnection.frequency}" count="${reconnection.attempts}" />
+								<http:uri-params><![CDATA[#[{
+executionId: payload.id
+}]]]></http:uri-params>
+									</http:request>
+									<!-- [STUDIO:"Is true"]<validation:is-true doc:name="Is true" doc:id="a68c5194-f7df-4d8b-b15f-a87fb426947c" expression="#[ (payload.status == 'SUCCEEDED' or payload.status == 'MANUAL_VALIDATION_REQUIRED' or payload.status == 'PARTIAL_SUCCESS' or payload.status == 'IN_PROGRESS' or payload.status == 'RESULTS_PENDING')&#93;" /> [STUDIO] -->
+							<error-handler>
+								<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="1912eb16-5340-4f97-afaf-536e80ae4a11" type="HTTP:BAD_GATEWAY, HTTP:CONNECTIVITY, HTTP:UNAUTHORIZED">
+									<set-variable value="INTEGRATION_ERROR" doc:name="Set Variable" doc:id="66547ecd-8a60-4aa6-986d-fa7c3d37ccca" variableName="errorCategory"/>
+									<set-variable value='Failed to connect to IDP service' doc:name="Set Variable" doc:id="125cf675-9323-4285-a92b-0ac0b237752b" variableName="customMessage"/>
+									<logger level="INFO" doc:name="ErrorLog info" doc:id="4c40a8da-6dea-44a9-9dcd-7e8c7fcdc17f" message='#[{&#10;    "errorCategory": vars.errorCategory,&#10;    "customMessage": vars.customMessage,&#10;    "errorType": error.errorType,&#10;    "description": error.description&#10;}]' />
+								</on-error-propagate>
+							</error-handler>
+								
+</try>
+					</until-successful>
+					<choice doc:name="Validation Check" doc:id="ffd1d978-3834-4418-ad05-2547ec951cbf">
+						<when expression="#[payload.status == 'SUCCEEDED']">
+							<logger level="INFO" doc:name="Execution Ids Succeeded Logger" doc:id="8b66394a-89ac-4076-8f8a-418d78ce36d2" message='#[{&#10;	"Message": "Succeeded Execution Id",&#10;	"Ids": payload.id&#10;}]' />
+							<flow-ref doc:name="Calling salesforce flow" doc:id="add538e3-391a-482a-a218-a3a2cc76fd0e" name="salesforce_flowSub_Flow" />
+						</when>
+						<when expression="#[payload.status == 'MANUAL_VALIDATION_REQUIRED' or payload.status == 'PARTIAL_SUCCESS' or payload.status == 'RESULTS_PENDING']">
+							<logger level="INFO" doc:name="Validation Required For Execution Id Logger" doc:id="a9f63c31-2934-4b78-a421-0ee681fa3d7d" message='#[{&#10;"Status": payload.status,&#10;"Id": payload.id,&#10;"Document":payload.documentName&#10;}]' />
+							<ee:transform doc:name="Reprocess execution ids" doc:id="cbef369f-e15a-4035-b8bb-e78fec712404">
+								<ee:message>
+								</ee:message>
+								<ee:variables>
+									<ee:set-variable variableName="reprocessIds"><![CDATA[%dw 2.0
+output application/json
+
+var data = {
+	"id": payload.id,
+	"documentName": payload.documentName
+}
+---
+vars.reprocessIds default [] ++ [data]]]></ee:set-variable>
+								</ee:variables>
+							</ee:transform>
+						</when>
+						<when expression="#[payload.status == 'IN_PROGRESS']">
+							<logger level="INFO" doc:name="Inprogress logger" doc:id="d57b8dd3-140c-4940-aefb-09b070b66cb3" message='#[{&#10;"message":"the idp response is in in progress state"&#10;}]'/>
+						</when>
+						<otherwise>
+							<logger level="INFO" doc:name="IDP unkonown error" doc:id="27225bc4-89f7-467a-88ff-d2ed2526711b" message='#[{&#10;"message": "idp unknown error",&#10;"Invalid Status": payload.status,&#10;"DocumentName": payload.documentName&#10;}]' />
+						</otherwise>
+					</choice>
+				</foreach>
+						</when>
+				<otherwise>
+							<logger level="INFO" doc:name="Execution Id Not Found" doc:id="70dadef6-55aa-4af6-b359-4105f39c1cdb" message='#[{&#10;"Message":"Execution Id Not Found"&#10;}]' />
+						</otherwise>
+					</choice>
+		<error-handler ref="global-error-handlingError_Handler" />
+	</flow>
+</mule>

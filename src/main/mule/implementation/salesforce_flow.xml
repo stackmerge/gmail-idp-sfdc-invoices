@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:os="http://www.mulesoft.org/schema/mule/os"
+      xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+      xmlns:salesforce="http://www.mulesoft.org/schema/mule/salesforce"
+      xmlns="http://www.mulesoft.org/schema/mule/core"
+      xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="
+      http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+      http://www.mulesoft.org/schema/mule/salesforce http://www.mulesoft.org/schema/mule/salesforce/current/mule-salesforce.xsd
+      http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/os http://www.mulesoft.org/schema/mule/os/current/mule-os.xsd">
+	<sub-flow name="salesforce_flowSub_Flow" doc:id="32560838-afc3-47fc-9ec0-96739b7314ca" >
+		<logger message='"salesforce flow started"' level="INFO" doc:name="Start logger" />
+		<set-variable value="#[payload.id]" doc:name="Storing execution id" doc:id="9ae83a0d-ecf6-4f8c-9d5a-d2eb738a9a11" variableName="storedIds" />
+		<ee:transform doc:name="Prepare Salesforce Payload">
+    <ee:message>
+				<ee:set-payload resource="dwl/salesforce_mapping.dwl" />
+    
+</ee:message>
+</ee:transform>
+		<until-successful maxRetries="${untilSuccessful.reties}" doc:name="Until Successful" doc:id="b41c9a71-4144-4f6e-8fa2-cd018c580735" millisBetweenRetries="${untilSuccessful.frequency}">
+			<try doc:name="Try" doc:id="3028cc5b-96a9-41a9-9820-6136228a5258">
+			<salesforce:create type="${salesforce.type}" doc:name="Inserting data to salesforce invoice" doc:id="1748b532-05d2-42cf-89f0-b1df0cd40753" config-ref="Salesforce_Config">
+			<reconnect frequency="${reconnection.frequency}" count="${reconnection.attempts}" />
+		</salesforce:create>
+				<error-handler>
+				<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="3f58a6c9-4e92-489f-babd-090880a5a979" type="SALESFORCE:CONNECTIVITY, SALESFORCE:RETRY_EXHAUSTED">
+					<logger level="INFO" doc:name="Error logger" doc:id="29fb6295-b11f-4728-813b-cd732e1a67a2" message='"Salesforce insert failed after retries for executionId #[vars.storedIds]"' />
+				</on-error-propagate>
+			</error-handler>
+		</try>
+		</until-successful>
+		<os:remove doc:name="Removing Succeeded Execution Ids" doc:id="49f2ae6d-0887-407f-801f-aac4e61447b0" key="#[vars.storedIds]" objectStore="Object_store" />
+		<logger level="INFO" doc:name="End Logger" doc:id="3fa26f84-7de5-4771-91f5-53aa6a71f213" message='" execution id removed successfuly"'/>
+	</sub-flow>
+
+
+</mule>

@@ -1,0 +1,26 @@
+#request reconnection
+reconnection:
+ frequency: "60000"
+ attempts: "5"
+
+#untilsuccessful reconnection
+untilSuccessful:
+  reties: "5"
+  frequency: "10000"
+
+#scheduling strategy
+scheduler:
+  frequency: "10"
+  delay: "0"
+
+#email scheduling strategy
+emailScheduler:
+  frequency: "1000"
+  delay: "0"
+  
+#email reconnection
+emailReconnection:
+ frequency: "2000"
+ attempts: "2"
+
+  

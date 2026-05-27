@@ -1,0 +1,12 @@
+email:
+  password: "![add ur encrypted gmail app password]"
+  
+idpRequest:
+  client_id: "![add ur encrypted anypoint connected app client id]"
+  client_secret: "![add ur encrypted anypoint connected app client secret]"
+
+salesforce:
+  client_id: "![add ur encrypted salesforce connected app client id]"
+  client_secret: "![add ur encrypted salesforce connected app client secret]"
+
+  

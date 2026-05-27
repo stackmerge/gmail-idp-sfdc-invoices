@@ -1,0 +1,16 @@
+email:
+  host: "imap.gmail.com"
+  port: "993"
+  user: "email_address"
+  
+idpRequest:
+  post_method: "POST"
+  get_method: "GET"
+  host: "idp-rt.us-east-1.anypoint.mulesoft.com"
+  path: "/api/v1/organizations/{orgid}/actions/{docActionId}/versions/1.0.0/executions"
+  get_path: "/api/v1/organizations/{orgid}/actions/{docActionId}/versions/1.0.0/executions/{executionId}"
+  token_url: "https://anypoint.mulesoft.com/accounts/api/v2/oauth2/token"
+  
+salesforce:
+  type: "Invoice__c"
+  token_url: "https://{salesforce-id}.develop.my.salesforce.com/services/oauth2/token"

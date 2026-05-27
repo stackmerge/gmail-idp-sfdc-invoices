@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+	<error-handler name="global-error-handlingError_Handler" doc:id="79aa230a-1879-4093-ba4d-dfdf07f0b30c" >
+		<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="4d035835-81b7-4ddb-bb35-38e4498348d8" type="OS:INVALID_KEY, OS:KEY_ALREADY_EXISTS, OS:NULL_VALUE, OS:STORE_NOT_AVAILABLE">
+			<set-variable value="500" doc:name="Error Status Code" doc:id="e7bb444b-3b0f-46ac-b629-9d0d26165349" variableName="errorStatus"/>
+			<flow-ref doc:name="Calling Error Message" doc:id="4bab6523-7b9b-40db-9d6b-1acd3bbea431" name="global-error-handlingSub_Flow"/>
+		</on-error-propagate>
+		<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="f6593117-cd18-4db8-b02d-6a32e835d22f" type="HTTP:TIMEOUT">
+			<set-variable value="504" doc:name="Set Variable" doc:id="82263bf4-1f42-4e1d-9e8b-70b9bec661c6" variableName="errorStatus"/>
+			<flow-ref doc:name="Flow Reference" doc:id="d0df5063-00eb-4a01-bfc3-bc08b757ad52" name="global-error-handlingSub_Flow"/>
+		</on-error-propagate>
+		<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="14fdb8b8-6356-48a7-9224-236a31a7876f" type="VALIDATION">
+			<set-variable value="400" doc:name="Set Variable" doc:id="679fed51-1412-495c-9184-2c9bdd312981" variableName="errorStatus" />
+			<flow-ref doc:name="Flow Reference" doc:id="1a47437e-4081-418a-804e-5c7cd66c80b3" name="global-error-handlingSub_Flow" />
+		</on-error-propagate>
+		<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="eb9154e6-7ed0-4b07-98a9-9c059f1dee8d" type="ANY">
+			<set-variable value="500" doc:name="Error Status Code" doc:id="26bbe0da-a20e-497b-83eb-fbe039e5b632" variableName="errorStatus" />
+			<flow-ref doc:name="Calling Error Message" doc:id="99e1fe8a-cad7-48ac-a9c7-917955c0e744" name="global-error-handlingSub_Flow" />
+		</on-error-propagate>
+	</error-handler>
+	<sub-flow name="global-error-handlingSub_Flow" doc:id="526d6401-adc6-42d1-bbaa-a9415d7d4c2c" >
+		<!-- [STUDIO:"Error Logger"]<logger level="INFO" doc:name="Error Logger" doc:id="1c51fb3a-81e5-478a-ac5f-b01dd5befd95" message='#[correlationId ++ " | " ++ error.errorType ++ " | " ++ error.description&#93;'/> [STUDIO] -->
+		<!-- [STUDIO:"Formatting Error Message"]<ee:transform doc:name="Formatting Error Message" doc:id="f1bce32a-7312-4358-800a-d314137237ee" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+&#45;&#45;-
+{
+    timestamp: now(),
+    correlationId: correlationId,
+    errorType: error.errorType.identifier,
+    errorDescription: error.description,
+    status: vars.errorStatus
+}&#93;&#93;></ee:set-payload>
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="statusCode" ><![CDATA[vars.errorStatus&#93;&#93;></ee:set-variable>
+			</ee:variables>
+		</ee:transform> [STUDIO] -->
+		<ee:transform doc:name="Transform Message" doc:id="1a7d6b3e-9c51-4d5f-9355-48e4af3d8c7e" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	success: false,
+    event: "ERROR",
+    timestamp: now(),
+    correlationId: correlationId,
+    errorCategory: vars.errorCategory default "TECHNICAL_ERROR",
+    customMessage: vars.customMessage default "Something went wrong",
+    status: vars.errorStatus,
+    error: {
+        errorType: error.errorType.identifier,
+        message: error.description
+    }
+}
+]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" doc:name="Logger" doc:id="d191e826-4160-4634-a95a-f13232566281" message="#[payload]"/>
+	</sub-flow>
+</mule>
