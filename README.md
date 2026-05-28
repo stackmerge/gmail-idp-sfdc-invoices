@@ -12,5 +12,8 @@ IDP REST APIS:
 - Get Extracted Data:
 - <img width="1055" height="851" alt="image" src="https://github.com/user-attachments/assets/b085f8eb-ddfa-402d-be5a-bd4aff1f78d0" />
 
+Finally Data posted in Salesforce:
+<img width="1066" height="713" alt="image" src="https://github.com/user-attachments/assets/8016b574-2246-4d34-9d62-167a1219c90c" />
+
 
 
